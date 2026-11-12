@@ -366,6 +366,74 @@
     text-overflow: ellipsis;
   }
 
+  /* ---------- Folha a virar ---------- */
+  .page { perspective: 1100px; }
+  .folha {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: 26px;                 /* presa na corda da lombada */
+    right: -2px;
+    z-index: 4;
+    padding: 10px 16px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: #1d1205;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.45), transparent 55%),
+      linear-gradient(90deg, rgba(110,70,20,0.25), transparent 12%),
+      #efe2bf;
+    border: 2px solid #8f6a3a;
+    border-left: none;
+    border-radius: 0 3px 3px 0;
+    box-shadow: inset 0 0 26px rgba(120,80,30,0.3), -4px 0 10px rgba(0,0,0,0.25);
+    transform-origin: left center;
+    backface-visibility: hidden;
+    pointer-events: none;
+  }
+  .folha-txt {
+    flex: 1;
+    font-size: 22px;
+    line-height: 1.25;
+    padding: 2px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+  }
+  .folha.frente { animation: folhaFrente 0.48s cubic-bezier(0.45, 0.05, 0.4, 1) forwards; }
+  .folha.tras   { animation: folhaTras 0.48s cubic-bezier(0.45, 0.05, 0.4, 1) forwards; }
+  @keyframes folhaFrente {
+    0%   { transform: rotateY(0deg);    filter: brightness(1); }
+    100% { transform: rotateY(-180deg); filter: brightness(0.65); }
+  }
+  @keyframes folhaTras {
+    0%   { transform: rotateY(-180deg); filter: brightness(0.65); }
+    100% { transform: rotateY(0deg);    filter: brightness(1); }
+  }
+
+  /* ---------- Modo tarefas compacto ---------- */
+  body.modo-tarefas .book { padding: 0 7px 9px; }
+  body.modo-tarefas .barra { height: 30px; gap: 3px; }
+  body.modo-tarefas .barra .titulo { font-size: 15px; }
+  body.modo-tarefas #bMusica,
+  body.modo-tarefas #bAssinar,
+  body.modo-tarefas #bApagar { display: none; }
+  body.modo-tarefas .page { padding: 6px 10px 8px 32px; }
+  body.modo-tarefas .page::after { display: none; }
+  body.modo-tarefas .page::before { left: 5px; width: 20px; }
+  body.modo-tarefas .logo { display: none; }
+  body.modo-tarefas .header { font-size: 16px; margin-bottom: 2px; }
+  body.modo-tarefas .tarefa { font-size: 18px; padding: 2px 0; gap: 6px; }
+  body.modo-tarefas .caixa { width: 17px; height: 17px; font-size: 17px; line-height: 11px; }
+  body.modo-tarefas .vazio { font-size: 17px; }
+  body.modo-tarefas .nova-tarefa { margin: 4px 0 0; }
+  body.modo-tarefas .nova-tarefa input { font-size: 17px; padding: 1px 4px; }
+  body.modo-tarefas .ajuda { inset: 28px 6px 6px 28px; font-size: 15px; }
+  body.modo-tarefas .conquista { top: 38px; right: 8px; width: calc(100% - 22px); }
+  body.modo-tarefas .conquista .t1 { font-size: 17px; }
+  body.modo-tarefas .conquista .t2 { font-size: 16px; }
+
   /* ---------- Ajuda dos atalhos ---------- */
   .header .dir { display: flex; align-items: center; gap: 8px; }
   .ajuda-btn {
@@ -517,6 +585,11 @@
       </div>
       <div class="canto-esq" id="prev" title="Página anterior"></div>
       <div class="canto-dir" id="next" title="Página seguinte (ou nova, na última)"></div>
+      <!-- Folha que vira ao mudar de página -->
+      <div class="folha" id="folha" hidden aria-hidden="true">
+        <div class="header"><span class="logo">MINECRAFT</span><span class="folha-lab"></span></div>
+        <div class="folha-txt"></div>
+      </div>
     </div>
     <div class="status" id="status"></div>
     <div class="pega" id="pega" title="Arrasta para mudar o tamanho"></div>
@@ -630,23 +703,71 @@
     transbordar();
   }
 
-  function goTo(i) {
-    if (i < 0 || i >= data.pages.length) return;
+  function goTo(i, animar = true) {
+    if (i < 0 || i >= data.pages.length || i === idx) return;
     sincronizar();
-    idx = i;
-    render();
-    ta.focus();
+    const mudar = () => { idx = i; render(); ta.focus(); };
+    if (animar) virarFolha(i > idx ? 1 : -1, i, mudar);
+    else mudar();
   }
 
   function seguinte() {
     if (idx === data.pages.length - 1) {
       sincronizar();
       data.pages.push("");
-      idx = data.pages.length - 1;
-      render();
       save("Nova página");
-      ta.focus();
-    } else goTo(idx + 1);
+    }
+    goTo(idx + 1);
+  }
+
+  // ---------- Animação de virar a folha ----------
+  // Para a frente: a folha atual roda para a esquerda e mostra a seguinte por baixo.
+  // Para trás: a folha anterior volta da esquerda e pousa por cima da atual.
+  const DUR_FOLHA = 480;
+  let virando = false;
+
+  function rotuloPagina(i) { return `Page ${i + 1} of ${data.pages.length}`; }
+
+  function virarFolha(dir, novo, mudar) {
+    if (virando) { mudar(); return; }
+    virando = true;
+    const f = $("folha");
+    f.classList.remove("frente", "tras");
+    const mostrar = dir > 0 ? idx : novo;
+    f.querySelector(".folha-txt").textContent = data.pages[mostrar];
+    f.querySelector(".folha-lab").textContent = rotuloPagina(mostrar);
+    if (dir > 0) mudar();               // a página nova já fica por baixo
+    f.hidden = false;
+    void f.offsetWidth;
+    f.classList.add(dir > 0 ? "frente" : "tras");
+    somFolha();
+    setTimeout(() => {
+      if (dir < 0) mudar();
+      f.hidden = true;
+      f.classList.remove("frente", "tras");
+      virando = false;
+    }, DUR_FOLHA);
+  }
+
+  let audioFolha = null;
+  function somFolha() {
+    try {
+      audioFolha = audioFolha || new AudioContext();
+      const ctx = audioFolha, dur = 0.22;
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const filtro = ctx.createBiquadFilter();
+      filtro.type = "bandpass";
+      filtro.frequency.value = 2500;
+      filtro.Q.value = 0.7;
+      const vol = ctx.createGain();
+      vol.gain.value = 0.12;
+      src.connect(filtro).connect(vol).connect(ctx.destination);
+      src.start();
+    } catch (e) { /* sem som, não faz mal */ }
   }
 
   // ---------- Abrir / recolher ----------
@@ -661,6 +782,9 @@
 
   function mostrarVista() {
     const t = emTarefas();
+    document.body.classList.toggle("modo-tarefas", t);
+    // cada modo tem o seu tamanho de janela; em tarefas a altura acompanha a lista
+    if (api) api.modo(t ? "tarefas" : "paginas").then(() => { if (t) ajustarAltura(); });
     ta.hidden = t;
     $("nav").hidden = t;
     $("next").hidden = t;
@@ -694,8 +818,9 @@
     if (!data.tarefas.length) {
       const li = document.createElement("li");
       li.className = "vazio";
-      li.textContent = "Ainda não há tarefas. Escreve uma em baixo e carrega Enter.";
+      li.textContent = "Sem tarefas. Escreve uma em baixo e carrega Enter.";
       lista.appendChild(li);
+      ajustarAltura();
       return;
     }
     data.tarefas.forEach((t, i) => {
@@ -726,7 +851,24 @@
       li.append(caixa, txt, del);
       lista.appendChild(li);
     });
+    ajustarAltura();
   }
+
+  // Em tarefas, a janela fica só com a altura necessária para a lista
+  let alturaTimer = null;
+  function ajustarAltura() {
+    if (!api || !emTarefas() || aberto.hidden) return;
+    clearTimeout(alturaTimer);
+    alturaTimer = setTimeout(() => {
+      const lista = $("lista");
+      let conteudo = 0;
+      for (const li of lista.children) conteudo += li.getBoundingClientRect().height;
+      const alvo = Math.round(window.innerHeight - lista.clientHeight + conteudo + 4);
+      if (Math.abs(alvo - window.innerHeight) > 2) api.altura(alvo);
+    }, 30);
+  }
+  // mudar a largura faz as tarefas ocuparem mais/menos linhas
+  window.addEventListener("resize", () => { if (emTarefas()) ajustarAltura(); });
 
   // Atualiza só esta linha (sem redesenhar a lista) para o traço e a opacidade animarem
   function marcarTarefa(i, li, caixa) {
@@ -932,7 +1074,7 @@
       const antes = idx;
       transbordar();
       if (!fimDaPagina) {
-        goTo(antes);
+        goTo(antes, false);
         const p = Math.min(pos, ta.value.length);
         ta.setSelectionRange(p, p);
       }

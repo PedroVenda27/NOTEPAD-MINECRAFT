@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld("nota", {
   mover: (dx, dy) => ipcRenderer.send("nota:mover", dx, dy),
   redimensionar: (dx, dy) => ipcRenderer.send("nota:tamanho", dx, dy),
   recolher: (sim) => ipcRenderer.invoke("nota:recolher", sim),
+  modo: (modo) => ipcRenderer.invoke("nota:modo", modo),
+  altura: (h) => ipcRenderer.send("nota:altura", h),
 });

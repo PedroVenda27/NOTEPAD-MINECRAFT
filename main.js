@@ -8,6 +8,26 @@ const fs = require("fs");
 const ABERTO = { w: 360, h: 500 };     // tamanho por omissão de uma nota aberta
 const RECOLHIDO = { w: 120, h: 112 };  // tamanho quando está recolhida (só o ícone do livro)
 const MIN = { w: 280, h: 360 };
+const TAREFAS = { w: 270, h: 260 };    // modo tarefas: mais pequeno (a altura ajusta-se às tarefas)
+const MIN_TAREFAS = { w: 230, h: 170, hMax: 600 };
+
+// Tamanho que a nota deve ter, conforme está recolhida / em páginas / em tarefas
+function tamanhoDe(n) {
+  if (n.recolhido) return { w: RECOLHIDO.w, h: RECOLHIDO.h };
+  if (n.modo === "tarefas") return { w: n.tw || TAREFAS.w, h: n.th || TAREFAS.h };
+  return { w: n.w || ABERTO.w, h: n.h || ABERTO.h };
+}
+
+// Aplica o tamanho sem deixar a nota sair do ecrã
+function aplicarTamanho(win, n) {
+  const { w, h } = tamanhoDe(n);
+  if (n.recolhido) { win.setSize(w, h); return; }
+  const [x, y] = win.getPosition();
+  const a = screen.getDisplayMatching({ x, y, width: w, height: h }).workArea;
+  const nx = Math.min(Math.max(x, a.x), a.x + a.width - w);
+  const ny = Math.min(Math.max(y, a.y), a.y + a.height - h);
+  win.setBounds({ x: nx, y: ny, width: w, height: h });
+}
 
 const ficheiro = () => path.join(app.getPath("userData"), "notas.json");
 let notas = [];
@@ -51,7 +71,7 @@ function abrirNota(n) {
     w.focus();
     return w;
   }
-  const tam = n.recolhido ? RECOLHIDO : { w: n.w || ABERTO.w, h: n.h || ABERTO.h };
+  const tam = tamanhoDe(n);
   const opcoes = {
     width: tam.w,
     height: tam.h,
@@ -193,9 +213,15 @@ ipcMain.on("nota:tamanho", (e, dx, dy) => {
   const n = notaDe(win);
   if (n.recolhido) return;
   const [w, h] = win.getSize();
-  n.w = Math.max(MIN.w, Math.round(w + dx));
-  n.h = Math.max(MIN.h, Math.round(h + dy));
-  win.setSize(n.w, n.h);
+  if (n.modo === "tarefas") {
+    // em tarefas só se muda a largura; a altura acompanha o número de tarefas
+    n.tw = Math.max(MIN_TAREFAS.w, Math.round(w + dx));
+    win.setSize(n.tw, h);
+  } else {
+    n.w = Math.max(MIN.w, Math.round(w + dx));
+    n.h = Math.max(MIN.h, Math.round(h + dy));
+    win.setSize(n.w, n.h);
+  }
   guardar();
 });
 
@@ -203,19 +229,29 @@ ipcMain.handle("nota:recolher", (e, sim) => {
   const win = janelaDe(e);
   const n = notaDe(win);
   n.recolhido = !!sim;
-  if (sim) {
-    win.setSize(RECOLHIDO.w, RECOLHIDO.h);
-  } else {
-    const w = n.w || ABERTO.w, h = n.h || ABERTO.h;
-    // ao abrir, não deixar a nota sair do ecrã
-    const [x, y] = win.getPosition();
-    const a = screen.getDisplayMatching({ x, y, width: w, height: h }).workArea;
-    const nx = Math.min(Math.max(x, a.x), a.x + a.width - w);
-    const ny = Math.min(Math.max(y, a.y), a.y + a.height - h);
-    win.setBounds({ x: nx, y: ny, width: w, height: h });
-  }
+  aplicarTamanho(win, n);
   guardar();
   return n.recolhido;
+});
+
+// Troca entre páginas e tarefas (cada modo tem o seu tamanho)
+ipcMain.handle("nota:modo", (e, modo) => {
+  const win = janelaDe(e);
+  const n = notaDe(win);
+  if (n.modo === modo) return;
+  n.modo = modo;
+  if (!n.recolhido) aplicarTamanho(win, n);
+  guardar();
+});
+
+// Em tarefas, a nota pede a altura certa para mostrar todas as tarefas
+ipcMain.on("nota:altura", (e, h) => {
+  const win = janelaDe(e);
+  const n = notaDe(win);
+  if (n.recolhido || n.modo !== "tarefas") return;
+  n.th = Math.min(MIN_TAREFAS.hMax, Math.max(MIN_TAREFAS.h, Math.round(h)));
+  aplicarTamanho(win, n);
+  guardar();
 });
 
 // ---------- Arranque ----------
