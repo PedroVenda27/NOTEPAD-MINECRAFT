@@ -1,0 +1,15 @@
+{
+  "name": "livro-de-notas",
+  "productName": "Livro de Notas",
+  "version": "1.0.0",
+  "description": "Livro de notas em estilo pixel",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . \"Livro de Notas\" --platform=win32 --arch=x64 --icon=icone.ico --out=dist --overwrite --ignore=^/dist --ignore=\\.bat$ --ignore=ICON_PROGRAMA\\.png --ignore=^/package-lock\\.json"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.1"
+  }
+}

@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Livro de Notas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    padding: 6px 10px 14px 6px;      /* espaço para a sombra da nota */
+    overflow: hidden;
+    font-family: "VT323", "Courier New", monospace;
+    background: transparent;
+    color: #fff;
+    user-select: none;
+  }
+
+  /* ---------- Nota recolhida (só o ícone do livro) ---------- */
+  #fechado {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #capa {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: grab;
+    image-rendering: pixelated;
+    filter: drop-shadow(3px 4px 3px rgba(0,0,0,0.55));
+    touch-action: none;
+  }
+  #capa:active { cursor: grabbing; }
+  #capa svg { display: block; transition: transform 0.15s; }
+  #capa:hover svg { transform: translateY(-3px); }
+
+  /* ---------- Nota aberta ---------- */
+  #aberto { height: 100%; }
+
+  .book {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0 2px, transparent 2px 7px),
+      linear-gradient(160deg, #9a6333 0%, #7a4a1e 55%, #5e3413 100%);
+    border: 4px solid #3a1f0a;
+    border-radius: 9px;
+    padding: 0 10px 12px;
+    box-shadow:
+      inset 0 0 0 2px #b57d45,
+      inset 0 0 18px rgba(0,0,0,0.45),
+      3px 6px 8px rgba(0,0,0,0.55);
+  }
+
+  /* Barra de cima: arrasta a nota e tem os botões */
+  .barra {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 34px;
+    flex: none;
+    -webkit-app-region: drag;
+    cursor: move;
+  }
+  .barra .titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 17px;
+    color: #f4dfb8;
+    text-shadow: 2px 2px 0 #2a1406;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ico {
+    -webkit-app-region: no-drag;
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 17px;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 1px 1px 0 #3a3a3a;
+    background: #8b8b8b;
+    border: 2px solid #000;
+    border-top-color: #c6c6c6;
+    border-left-color: #c6c6c6;
+    border-bottom-color: #4a4a4a;
+    border-right-color: #4a4a4a;
+    cursor: pointer;
+  }
+  .ico:hover { background: #a0a0a0; }
+  .ico:active { background: #6e6e6e; }
+  .ico.ligado { background: #3d6b2e; border-top-color: #7fb468; border-left-color: #7fb468; border-bottom-color: #22401a; border-right-color: #22401a; }
+  .ico.perigo:hover { background: #a33a2a; }
+
+  .page {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.45), transparent 55%),
+      radial-gradient(ellipse at 80% 85%, rgba(120,80,30,0.16), transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 60%, rgba(110,70,20,0.18) 100%),
+      #efe2bf;
+    border: 2px solid #8f6a3a;
+    border-radius: 3px;
+    padding: 10px 16px 12px 38px;
+    color: #1d1205;
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 0 26px rgba(120,80,30,0.35);
+  }
+
+  /* Corda da lombada, enrolada ao longo da esquerda */
+  .page::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: -2px;
+    bottom: -2px;
+    width: 22px;
+    background:
+      linear-gradient(90deg, #3f1009 0, #8e3222 35%, #b8523c 50%, #8e3222 65%, #3f1009 100%) center / 8px 100% no-repeat,
+      radial-gradient(ellipse 9px 6px at 50% 50%, #c85a43 0 55%, #5e1a10 70%, transparent 78%) 0 0 / 22px 26px repeat-y;
+    filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.45));
+  }
+
+  /* Canto inferior direito levantado */
+  .page::after {
+    content: "";
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(315deg, #7f6236 0%, #d8c59b 45%, #f7efd9 55%, #cbb384 100%);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    filter: drop-shadow(-3px -3px 3px rgba(0,0,0,0.35));
+    pointer-events: none;
+  }
+
+  .logo {
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: #4a2a0e;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.6);
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    color: #3a2612;
+    margin-bottom: 6px;
+  }
+
+  textarea {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 22px;
+    line-height: 1.25;
+    color: #1d1205;
+    user-select: text;
+    overflow-y: auto;
+  }
+
+  .nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 4px;
+    margin-right: 34px;
+  }
+
+  .arrow {
+    width: 28px;
+    height: 22px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #d9c49a;
+    border: 2px solid #7a4a1e;
+    color: #3a2612;
+    cursor: pointer;
+  }
+  .arrow:disabled { opacity: 0.35; cursor: default; }
+
+  .status {
+    position: absolute;
+    left: 14px;
+    bottom: -1px;
+    font-size: 14px;
+    color: #f4dfb8;
+    text-shadow: 1px 1px 0 #2a1406;
+    pointer-events: none;
+  }
+
+  /* Pega para mudar o tamanho da nota */
+  .pega {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background:
+      linear-gradient(135deg, transparent 0 45%, #f4dfb8 45% 55%, transparent 55% 65%, #f4dfb8 65% 75%, transparent 75%);
+  }
+
+  /* Cantos clicáveis para virar a página */
+  .canto-dir, .canto-esq {
+    position: absolute;
+    bottom: 0;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .canto-dir { right: 0; }
+  .canto-esq { left: 0; width: 40px; height: 40px; }
+
+  /* ---------- Tarefas ---------- */
+  #tarefas {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .lista {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0 4px 0 0;
+    list-style: none;
+  }
+  .vazio { font-size: 19px; color: #8a7350; padding-top: 4px; }
+  .tarefa {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 21px;
+    line-height: 1.15;
+    padding: 4px 0;
+    border-bottom: 1px dashed rgba(90,60,20,0.3);
+  }
+  .caixa {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    padding: 0;
+    border: 2px solid #5e3413;
+    background: #f7efd9;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,0.12);
+    font-family: inherit;
+    font-size: 20px;
+    line-height: 14px;
+    color: #2f7d32;
+    cursor: pointer;
+  }
+  .caixa:hover { background: #fff8e6; }
+  .tarefa .txt {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    user-select: text;
+    transition: opacity 0.35s ease;
+  }
+  /* Traço por cima do texto, desenhado da esquerda para a direita */
+  .tarefa .risco {
+    background-image: linear-gradient(#3a2612, #3a2612);
+    background-repeat: no-repeat;
+    background-position: 0 58%;
+    background-size: 0% 2px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-size 0.4s ease;
+  }
+  .tarefa.feita .txt { opacity: 0.45; }
+  .tarefa.feita .risco { background-size: 100% 2px; }
+  .tarefa .del {
+    flex: none;
+    border: none;
+    background: none;
+    padding: 0 2px;
+    font-family: inherit;
+    font-size: 18px;
+    color: #8a5a2a;
+    cursor: pointer;
+    visibility: hidden;
+  }
+  .tarefa:hover .del { visibility: visible; }
+  .tarefa .del:hover { color: #a33a2a; }
+  .nova-tarefa {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    margin-right: 34px;
+  }
+  .nova-tarefa input {
+    flex: 1;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 20px;
+    color: #1d1205;
+    background: rgba(255,255,255,0.35);
+    border: none;
+    border-bottom: 2px solid #8f6a3a;
+    outline: none;
+    padding: 2px 4px;
+    user-select: text;
+  }
+
+  /* ---------- Aviso de conquista ---------- */
+  .conquista {
+    position: fixed;
+    top: 44px;
+    right: 14px;
+    width: calc(100% - 34px);
+    max-width: 330px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px 7px 10px;
+    background: #212121;
+    border: 2px solid #000;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px #5a5a5a, 0 4px 10px rgba(0,0,0,0.6);
+    transform: translateX(calc(100% + 40px));   /* escondida à direita, fora da janela */
+    transition: transform 0.4s ease;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .conquista.mostrar { transform: translateX(0); }
+  .conquista svg { flex: none; image-rendering: pixelated; }
+  .conquista .textos { min-width: 0; }
+  .conquista .t1 { font-size: 20px; color: #ffff55; text-shadow: 2px 2px 0 #3f3f15; line-height: 1; }
+  .conquista .t2 {
+    font-size: 19px;
+    color: #fff;
+    text-shadow: 2px 2px 0 #3f3f3f;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- Ajuda dos atalhos ---------- */
+  .header .dir { display: flex; align-items: center; gap: 8px; }
+  .ajuda-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 17px;
+    line-height: 1;
+    color: #3a2612;
+    background: #d9c49a;
+    border: 2px solid #7a4a1e;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .ajuda-btn:hover { background: #e8d6ae; }
+  .ajuda {
+    position: absolute;
+    inset: 40px 12px 12px 34px;
+    z-index: 5;
+    overflow-y: auto;
+    padding: 10px 12px;
+    background: #2b2b2b;
+    border: 2px solid #000;
+    box-shadow: inset 0 0 0 2px #5a5a5a, 0 4px 10px rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 17px;
+    user-select: text;
+  }
+  .ajuda-titulo { color: #ffff55; font-size: 20px; margin-bottom: 6px; text-shadow: 2px 2px 0 #3f3f15; }
+  .ajuda table { border-collapse: collapse; width: 100%; }
+  .ajuda td { padding: 2px 0; vertical-align: top; }
+  .ajuda td:first-child { color: #ffd27a; padding-right: 10px; white-space: nowrap; }
+
+  /* ---------- Capa do livro (anima ao abrir e fechar) ---------- */
+  #aberto { perspective: 1400px; }
+  .book { transform-style: preserve-3d; }
+  .capa-livro {
+    position: absolute;
+    inset: -4px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 4px solid #2a1206;
+    border-radius: 9px 12px 12px 9px;
+    background:
+      linear-gradient(90deg, #3c1a0a 0 22px, #5a2a14 22px 26px, transparent 26px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.07) 0 3px, transparent 3px 6px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 3px, transparent 3px 9px),
+      linear-gradient(150deg, #9a5232 0%, #7a3d22 50%, #552612 100%);
+    box-shadow:
+      inset 0 0 0 3px #a8653c,
+      inset 0 0 40px rgba(0,0,0,0.55),
+      4px 6px 10px rgba(0,0,0,0.5);
+    transform-origin: left center;
+    transform: rotateY(0deg);
+    backface-visibility: hidden;
+    pointer-events: none;
+  }
+  .capa-livro.abrir  { animation: capaAbrir 0.7s cubic-bezier(0.55, 0.05, 0.35, 1) forwards; }
+  .capa-livro.fechar { animation: capaFechar 0.7s cubic-bezier(0.55, 0.05, 0.35, 1) forwards; }
+  @keyframes capaAbrir {
+    0%   { transform: rotateY(0deg);    opacity: 1; }
+    55%  { opacity: 1; }
+    100% { transform: rotateY(-100deg); opacity: 0; }
+  }
+  @keyframes capaFechar {
+    0%   { transform: rotateY(-100deg); opacity: 0; }
+    45%  { opacity: 1; }
+    100% { transform: rotateY(0deg);    opacity: 1; }
+  }
+  .capa-livro img {
+    width: 46%;
+    max-width: 170px;
+    image-rendering: pixelated;
+    filter: drop-shadow(4px 5px 0 rgba(0,0,0,0.4));
+  }
+  .capa-livro .nome {
+    max-width: 80%;
+    padding: 4px 12px;
+    font-size: 24px;
+    color: #f4dfb8;
+    text-align: center;
+    text-shadow: 2px 2px 0 #2a1406;
+    background: rgba(40,16,6,0.45);
+    border: 2px solid #b57d45;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #capa img { display: block; image-rendering: pixelated; pointer-events: none; }
+  .ico img { display: block; margin: auto; image-rendering: pixelated; pointer-events: none; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Nota recolhida -->
+<div id="fechado" hidden>
+  <button id="capa" title="Clica para abrir · arrasta para mover" aria-label="Abrir nota"><img src="capa.png" width="90" height="90" alt="" draggable="false"></button>
+</div>
+
+<!-- Nota aberta -->
+<div id="aberto" hidden>
+  <div class="book">
+    <div class="barra">
+      <span class="titulo" id="titulo">Livro de Notas</span>
+      <button class="ico" id="bNova" title="Nova nota (Ctrl+N)">+</button>
+      <button class="ico" id="bTarefas" title="Alternar entre páginas e tarefas (Ctrl+T)">☑</button>
+      <button class="ico" id="bTopo" title="Sempre por cima das outras janelas">▲</button>
+      <button class="ico" id="bMusica" title="Música (clique direito: escolher outra)">♪</button>
+      <button class="ico" id="bAssinar" title="Assinar">✎</button>
+      <button class="ico perigo" id="bApagar" title="Apagar esta nota">⌫</button>
+      <button class="ico" id="bRecolher" title="Fechar o livro (Ctrl+Q) — fica só a capa no ecrã"><img src="capa.png" width="18" height="18" alt="Fechar livro" draggable="false"></button>
+      <button class="ico perigo" id="bFechar" title="Esconder nota (volta quando abrires o programa)">✕</button>
+    </div>
+    <div class="page">
+      <div class="header"><span class="logo">MINECRAFT</span><span class="dir"><button class="ajuda-btn" id="bAjuda" title="Atalhos de teclado (F1)">?</button><span id="pageLabel">Page 1 of 1</span></span></div>
+      <div class="ajuda" id="ajuda" hidden>
+        <div class="ajuda-titulo">Atalhos de teclado</div>
+        <table>
+          <tr><td>Ctrl+C / Ctrl+X / Ctrl+V</td><td>Copiar / Cortar / Colar</td></tr>
+          <tr><td>Ctrl+A</td><td>Selecionar tudo</td></tr>
+          <tr><td>Ctrl+Z / Ctrl+Y</td><td>Desfazer / Refazer</td></tr>
+          <tr><td>Ctrl+S</td><td>Guardar</td></tr>
+          <tr><td>Ctrl+N</td><td>Nova nota</td></tr>
+          <tr><td>Ctrl+T</td><td>Páginas ↔ Tarefas</td></tr>
+          <tr><td>Ctrl+Q</td><td>Fechar o livro</td></tr>
+          <tr><td>Ctrl+← / Ctrl+→</td><td>Página anterior / seguinte</td></tr>
+          <tr><td>Ctrl+ + / Ctrl+ − / Ctrl+0</td><td>Letra maior / menor / normal</td></tr>
+          <tr><td>Botão direito</td><td>Menu copiar, colar…</td></tr>
+          <tr><td>F1 / Esc</td><td>Mostrar / fechar esta ajuda</td></tr>
+        </table>
+      </div>
+      <textarea id="texto" placeholder="Escreve aqui as tuas notas..." spellcheck="false"></textarea>
+      <div id="tarefas" hidden>
+        <ul class="lista" id="lista"></ul>
+        <form class="nova-tarefa" id="formTarefa" autocomplete="off">
+          <input id="novaTarefa" placeholder="Nova tarefa… (Enter)" spellcheck="false" maxlength="200">
+        </form>
+      </div>
+      <div class="nav" id="nav">
+        <button class="arrow" id="setaEsq" title="Página anterior (Ctrl+←)">◄</button>
+        <button class="arrow" id="setaDir" title="Página seguinte ou nova (Ctrl+→)">►</button>
+      </div>
+      <div class="canto-esq" id="prev" title="Página anterior"></div>
+      <div class="canto-dir" id="next" title="Página seguinte (ou nova, na última)"></div>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="pega" id="pega" title="Arrasta para mudar o tamanho"></div>
+    <!-- Capa que roda ao abrir / fechar o livro -->
+    <div class="capa-livro" id="capaLivro" hidden aria-hidden="true">
+      <img src="capa.png" alt="" draggable="false">
+      <div class="nome" id="capaNome">Livro de Notas</div>
+    </div>
+  </div>
+  <input type="file" id="ficheiroMusica" accept="audio/*" hidden>
+</div>
+
+<!-- Aviso de conquista -->
+<div class="conquista" id="conquista" role="status" aria-live="polite">
+  <span id="gema"></span>
+  <div class="textos">
+    <div class="t1">Tarefa concluída!</div>
+    <div class="t2" id="conquistaTexto"></div>
+  </div>
+</div>
+
+<script>
+  const api = window.nota || null;   // só existe dentro do programa
+  const params = new URLSearchParams(location.search);
+  const ID = params.get("id") || "principal";
+  // A nota "principal" usa a chave antiga, para não perder o que já estava escrito
+  const KEY = ID === "principal" ? "livro-notas-minecraft-v1" : "livro-notas-minecraft-v1:" + ID;
+
+
+  // ---------- Elementos ----------
+  const $ = (id) => document.getElementById(id);
+  const fechado = $("fechado"), aberto = $("aberto"), ta = $("texto");
+  const pageLabel = $("pageLabel"), statusEl = $("status"), tituloEl = $("titulo");
+
+  // ---------- Dados ----------
+  let data = { autor: "", pages: [""] };
+  let idx = 0, saveTimer = null, statusTimer = null, apagada = false;
+
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.pages) && parsed.pages.length) data = parsed;
+    }
+  } catch (e) {
+    aviso("Não foi possível ler esta nota");
+  }
+  if (!Array.isArray(data.tarefas)) data.tarefas = [];
+
+  function aviso(msg) {
+    statusEl.textContent = msg;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => statusEl.textContent = "", 1800);
+  }
+
+  function save(msg) {
+    if (apagada) return;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data));
+      if (msg) aviso(msg);
+    } catch (e) {
+      aviso("Erro ao guardar");
+    }
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => save(), 400);
+  }
+
+  // Título da barra = primeira linha da nota
+  function atualizarTitulo() {
+    const primeira = (data.pages[0] || "").split("\n").find(l => l.trim()) || "";
+    tituloEl.textContent = primeira.trim() || "Livro de Notas";
+    document.title = tituloEl.textContent;
+  }
+
+  function render() {
+    ta.value = data.pages[idx];
+    pageLabel.textContent = `Page ${idx + 1} of ${data.pages.length}`;
+    $("prev").hidden = idx === 0;
+    $("setaEsq").disabled = idx === 0;
+    atualizarTitulo();
+  }
+
+  function sincronizar() { data.pages[idx] = ta.value; }
+
+  // Quando o texto já não cabe na página, o excesso passa para a página seguinte
+  function cabe() { return ta.scrollHeight <= ta.clientHeight + 1; }
+
+  function transbordar() {
+    if (cabe() || ta.clientHeight < 40) return;
+    const total = ta.value;
+    let lo = 0, hi = total.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      ta.value = total.slice(0, mid);
+      if (cabe()) lo = mid; else hi = mid - 1;
+    }
+    let corte = lo;
+    const melhor = Math.max(total.lastIndexOf(" ", corte), total.lastIndexOf("\n", corte));
+    if (melhor > corte - 30 && melhor > 0) corte = melhor + 1;   // não partir palavras
+    const resto = total.slice(corte);
+    data.pages[idx] = total.slice(0, corte);
+    if (idx === data.pages.length - 1) data.pages.push("");
+    data.pages[idx + 1] = resto + data.pages[idx + 1];
+    idx++;
+    render();
+    ta.focus();
+    ta.setSelectionRange(resto.length, resto.length);
+    transbordar();
+  }
+
+  function goTo(i) {
+    if (i < 0 || i >= data.pages.length) return;
+    sincronizar();
+    idx = i;
+    render();
+    ta.focus();
+  }
+
+  function seguinte() {
+    if (idx === data.pages.length - 1) {
+      sincronizar();
+      data.pages.push("");
+      idx = data.pages.length - 1;
+      render();
+      save("Nova página");
+      ta.focus();
+    } else goTo(idx + 1);
+  }
+
+  // ---------- Abrir / recolher ----------
+  function mostrarAberto() {
+    fechado.hidden = true;
+    aberto.hidden = false;
+    mostrarVista();
+  }
+
+  // ---------- Vista: páginas ou tarefas ----------
+  const emTarefas = () => data.vista === "tarefas";
+
+  function mostrarVista() {
+    const t = emTarefas();
+    ta.hidden = t;
+    $("nav").hidden = t;
+    $("next").hidden = t;
+    $("tarefas").hidden = !t;
+    $("bTarefas").classList.toggle("ligado", t);
+    if (t) {
+      $("prev").hidden = true;
+      renderTarefas();
+      $("novaTarefa").focus();
+    } else {
+      render();
+      ta.focus();
+    }
+  }
+
+  function alternarVista() {
+    sincronizarSePaginas();
+    data.vista = emTarefas() ? "paginas" : "tarefas";
+    mostrarVista();
+    save();
+  }
+
+  function sincronizarSePaginas() { if (!emTarefas()) sincronizar(); }
+
+  // ---------- Tarefas ----------
+  function renderTarefas() {
+    const lista = $("lista");
+    lista.innerHTML = "";
+    const feitas = data.tarefas.filter(t => t.feita).length;
+    pageLabel.textContent = `Tarefas ${feitas}/${data.tarefas.length}`;
+    if (!data.tarefas.length) {
+      const li = document.createElement("li");
+      li.className = "vazio";
+      li.textContent = "Ainda não há tarefas. Escreve uma em baixo e carrega Enter.";
+      lista.appendChild(li);
+      return;
+    }
+    data.tarefas.forEach((t, i) => {
+      const li = document.createElement("li");
+      li.className = "tarefa" + (t.feita ? " feita" : "");
+      const caixa = document.createElement("button");
+      caixa.className = "caixa";
+      caixa.textContent = t.feita ? "✔" : "";
+      caixa.title = t.feita ? "Marcar como por fazer" : "Marcar como concluída";
+      caixa.setAttribute("aria-pressed", t.feita ? "true" : "false");
+      caixa.addEventListener("click", () => marcarTarefa(i, li, caixa));
+      const txt = document.createElement("span");
+      txt.className = "txt";
+      const risco = document.createElement("span");
+      risco.className = "risco";
+      risco.textContent = t.texto;
+      txt.appendChild(risco);
+      txt.addEventListener("dblclick", () => editarTarefa(i));
+      const del = document.createElement("button");
+      del.className = "del";
+      del.textContent = "✕";
+      del.title = "Apagar tarefa";
+      del.addEventListener("click", () => {
+        data.tarefas.splice(i, 1);
+        renderTarefas();
+        save();
+      });
+      li.append(caixa, txt, del);
+      lista.appendChild(li);
+    });
+  }
+
+  // Atualiza só esta linha (sem redesenhar a lista) para o traço e a opacidade animarem
+  function marcarTarefa(i, li, caixa) {
+    const t = data.tarefas[i];
+    t.feita = !t.feita;
+    if (t.feita) {
+      t.concluida = new Date().toISOString();
+      mostrarConquista(t.texto);
+    } else {
+      delete t.concluida;
+    }
+    li.classList.toggle("feita", t.feita);
+    caixa.textContent = t.feita ? "✔" : "";
+    caixa.title = t.feita ? "Marcar como por fazer" : "Marcar como concluída";
+    caixa.setAttribute("aria-pressed", t.feita ? "true" : "false");
+    const feitas = data.tarefas.filter(x => x.feita).length;
+    pageLabel.textContent = `Tarefas ${feitas}/${data.tarefas.length}`;
+    save();
+  }
+
+  function editarTarefa(i) {
+    const novo = prompt("Editar tarefa:", data.tarefas[i].texto);
+    if (novo === null || !novo.trim()) return;
+    data.tarefas[i].texto = novo.trim();
+    renderTarefas();
+    save();
+  }
+
+  $("formTarefa").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const inp = $("novaTarefa");
+    const texto = inp.value.trim();
+    if (!texto) return;
+    data.tarefas.push({ texto, feita: false, criada: new Date().toISOString() });
+    inp.value = "";
+    renderTarefas();
+    $("lista").scrollTop = $("lista").scrollHeight;
+    save();
+  });
+
+  // ---------- Aviso de conquista ----------
+  (function desenharGema() {
+    const G = [
+      "...kkk...",
+      "..kLLGk..",
+      ".kLLGGGk.",
+      "kLLGGGDDk",
+      "kLGGGDDDk",
+      "kGGGDDDDk",
+      ".kGDDDDk.",
+      "..kDDDk..",
+      "...kkk...",
+    ];
+    const C = { k: "#0b3d1a", L: "#b6ffcf", G: "#3bd16f", D: "#17914a" };
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 9 9" shape-rendering="crispEdges">`;
+    G.forEach((linha, y) => [...linha].forEach((c, x) => {
+      if (C[c]) s += `<rect x="${x}" y="${y}" width="1" height="1" fill="${C[c]}"/>`;
+    }));
+    $("gema").innerHTML = s + "</svg>";
+  })();
+
+  let conquistaTimer = null;
+  function mostrarConquista(texto) {
+    $("conquistaTexto").textContent = texto;
+    const el = $("conquista");
+    el.classList.remove("mostrar");
+    void el.offsetWidth;            // reiniciar a animação
+    el.classList.add("mostrar");
+    tocarSomConquista();
+    clearTimeout(conquistaTimer);
+    conquistaTimer = setTimeout(() => el.classList.remove("mostrar"), 3500);
+  }
+
+  let audioCtx = null;
+  function tocarSomConquista() {
+    try {
+      audioCtx = audioCtx || new AudioContext();
+      const agora = audioCtx.currentTime;
+      [[784, 0], [1047, 0.12], [1319, 0.24]].forEach(([freq, t]) => {
+        const osc = audioCtx.createOscillator();
+        const vol = audioCtx.createGain();
+        osc.type = "square";
+        osc.frequency.value = freq;
+        vol.gain.setValueAtTime(0.0001, agora + t);
+        vol.gain.exponentialRampToValueAtTime(0.06, agora + t + 0.02);
+        vol.gain.exponentialRampToValueAtTime(0.0001, agora + t + 0.3);
+        osc.connect(vol).connect(audioCtx.destination);
+        osc.start(agora + t);
+        osc.stop(agora + t + 0.32);
+      });
+    } catch (e) { /* sem som, não faz mal */ }
+  }
+  function mostrarFechado() {
+    aberto.hidden = true;
+    fechado.hidden = false;
+  }
+
+  // ---------- Animação da capa ----------
+  const capaLivro = $("capaLivro");
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const DURACAO = 700;
+  let animando = false;
+
+  function prepararCapa() {
+    atualizarTitulo();
+    $("capaNome").textContent = tituloEl.textContent;
+    capaLivro.classList.remove("abrir", "fechar");
+    capaLivro.hidden = false;
+    void capaLivro.offsetWidth;     // reiniciar a animação
+  }
+
+  async function animarAbertura() {
+    prepararCapa();
+    await esperar(250);             // mostra a capa fechada um instante
+    capaLivro.classList.add("abrir");
+    await esperar(DURACAO);
+    capaLivro.hidden = true;
+    capaLivro.classList.remove("abrir");
+  }
+
+  async function animarFecho() {
+    prepararCapa();
+    capaLivro.classList.add("fechar");
+    await esperar(DURACAO + 150);
+    capaLivro.classList.remove("fechar");
+  }
+
+  async function abrir() {
+    if (animando) return;
+    animando = true;
+    if (api) await api.recolher(false);
+    mostrarAberto();
+    await animarAbertura();
+    animando = false;
+  }
+  async function recolher() {
+    if (animando) return;
+    animando = true;
+    sincronizar();
+    save();
+    $("conquista").classList.remove("mostrar");
+    await animarFecho();
+    mostrarFechado();
+    capaLivro.hidden = true;
+    if (api) await api.recolher(true);
+    animando = false;
+  }
+
+  if (params.get("recolhido") === "1") mostrarFechado();
+  else { mostrarAberto(); animarAbertura(); }
+
+  // ---------- Arrastar o ícone recolhido (clique sem arrastar = abrir) ----------
+  (function () {
+    const capa = $("capa");
+    let ult = null, andou = 0;
+    capa.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      ult = { x: e.screenX, y: e.screenY };
+      andou = 0;
+      capa.setPointerCapture(e.pointerId);
+    });
+    capa.addEventListener("pointermove", (e) => {
+      if (!ult) return;
+      const dx = e.screenX - ult.x, dy = e.screenY - ult.y;
+      if (!dx && !dy) return;
+      andou += Math.abs(dx) + Math.abs(dy);
+      ult = { x: e.screenX, y: e.screenY };
+      if (api) api.mover(dx, dy);
+    });
+    capa.addEventListener("pointerup", () => {
+      const foiClique = ult && andou < 5;
+      ult = null;
+      if (foiClique) abrir();
+    });
+    capa.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") abrir(); });
+  })();
+
+  // ---------- Mudar o tamanho pela pega ----------
+  (function () {
+    const pega = $("pega");
+    let ult = null;
+    if (!api) pega.hidden = true;
+    pega.addEventListener("pointerdown", (e) => {
+      ult = { x: e.screenX, y: e.screenY };
+      pega.setPointerCapture(e.pointerId);
+    });
+    pega.addEventListener("pointermove", (e) => {
+      if (!ult) return;
+      const dx = e.screenX - ult.x, dy = e.screenY - ult.y;
+      if (!dx && !dy) return;
+      ult = { x: e.screenX, y: e.screenY };
+      api.redimensionar(dx, dy);
+    });
+    pega.addEventListener("pointerup", () => { ult = null; });
+  })();
+
+  // ---------- Escrever ----------
+  ta.addEventListener("input", () => {
+    sincronizar();
+    const pos = ta.selectionStart;
+    const fimDaPagina = pos === ta.value.length;
+    if (!cabe()) {
+      const antes = idx;
+      transbordar();
+      if (!fimDaPagina) {
+        goTo(antes);
+        const p = Math.min(pos, ta.value.length);
+        ta.setSelectionRange(p, p);
+      }
+    }
+    atualizarTitulo();
+    scheduleSave();
+  });
+
+  $("prev").addEventListener("click", () => goTo(idx - 1));
+  $("next").addEventListener("click", seguinte);
+  $("setaEsq").addEventListener("click", () => goTo(idx - 1));
+  $("setaDir").addEventListener("click", seguinte);
+
+  // ---------- Botões da barra ----------
+  if (!api) ["bNova", "bTopo", "bFechar", "bApagar"].forEach(id => $(id).hidden = true);
+
+  $("bNova").addEventListener("click", () => api.nova());
+  $("bTarefas").addEventListener("click", alternarVista);
+
+  if (params.get("topo") === "1") $("bTopo").classList.add("ligado");
+  $("bTopo").addEventListener("click", async () => {
+    const ligado = await api.topo();
+    $("bTopo").classList.toggle("ligado", ligado);
+    aviso(ligado ? "Sempre por cima" : "Normal");
+  });
+
+  $("bRecolher").addEventListener("click", recolher);
+
+  $("bFechar").addEventListener("click", () => {
+    sincronizar();
+    save();
+    api.fechar();
+  });
+
+  $("bApagar").addEventListener("click", () => {
+    if (!confirm("Apagar esta nota de vez? Não dá para desfazer.")) return;
+    apagada = true;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    api.apagar();
+  });
+
+  $("bAssinar").addEventListener("click", () => {
+    const nome = prompt("Nome do autor:", data.autor || "");
+    if (nome === null) return;
+    data.autor = nome.trim() || data.autor;
+    const quando = new Date().toLocaleString("pt-PT");
+    sincronizar();
+    data.pages[idx] = ta.value + `\n\n— ${data.autor || "Anónimo"}, ${quando}`;
+    render();
+    save("Assinado");
+  });
+
+  // ---------- Música ----------
+  const audio = new Audio(encodeURI("C418 - Minecraft - Minecraft Volume Alpha.mp3"));
+  audio.loop = true;
+  audio.volume = 0.5;
+  const bMusica = $("bMusica"), inputMusica = $("ficheiroMusica");
+
+  function tocar() {
+    audio.play().then(() => {
+      bMusica.classList.add("ligado");
+    }).catch(() => aviso("Clique direito no ♪ para escolher música"));
+  }
+  bMusica.addEventListener("click", () => {
+    if (audio.paused) tocar();
+    else { audio.pause(); bMusica.classList.remove("ligado"); }
+  });
+  bMusica.addEventListener("contextmenu", (e) => { e.preventDefault(); inputMusica.click(); });
+  inputMusica.addEventListener("change", () => {
+    const f = inputMusica.files[0];
+    if (!f) return;
+    audio.src = URL.createObjectURL(f);
+    tocar();
+    aviso("A tocar: " + f.name);
+  });
+
+  // ---------- Teclado ----------
+  function alternarAjuda(mostrar) {
+    const a = $("ajuda");
+    a.hidden = mostrar === undefined ? !a.hidden : !mostrar;
+  }
+  $("bAjuda").addEventListener("click", () => alternarAjuda());
+  $("ajuda").addEventListener("click", () => alternarAjuda(false));
+
+  document.addEventListener("keydown", (e) => {
+    if (aberto.hidden) return;
+    const k = e.key.toLowerCase();
+    if (e.key === "F1") { e.preventDefault(); alternarAjuda(); return; }
+    if (e.key === "Escape" && !$("ajuda").hidden) { alternarAjuda(false); return; }
+    if (e.ctrlKey && k === "s") { e.preventDefault(); sincronizar(); save("Guardado"); }
+    else if (e.ctrlKey && k === "n" && api) { e.preventDefault(); api.nova(); }
+    else if (e.ctrlKey && k === "t") { e.preventDefault(); alternarVista(); }
+    else if (e.ctrlKey && k === "q") { e.preventDefault(); recolher(); }
+    else if (emTarefas()) return;
+    else if (e.ctrlKey && e.key === "ArrowLeft") { e.preventDefault(); goTo(idx - 1); }
+    else if (e.ctrlKey && e.key === "ArrowRight") { e.preventDefault(); goTo(idx + 1); }
+  });
+
+  // Guardar sempre que a nota é fechada ou escondida
+  window.addEventListener("beforeunload", () => { sincronizar(); save(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { sincronizar(); save(); }
+  });
+</script>
+</body>
+</html>
