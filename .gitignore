@@ -1,8 +1,5 @@
 node_modules/
 dist/
 
-# Música com direitos de autor: coloca o teu próprio ficheiro na pasta
-*.mp3
-
 # Atalho antigo (substituído pelo programa .exe)
 Abrir Livro de Notas.bat

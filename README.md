@@ -11,7 +11,7 @@ Bloco de notas para Windows em estilo pixel, inspirado no livro e pena de um jog
 - **Capa animada**: o livro abre e fecha com uma animação. Fechado (Ctrl+Q), fica só o ícone no ecrã.
 - **Sempre por cima**: o botão ▲ mantém a nota à frente das outras janelas.
 - **Atalhos**: Ctrl+C/V/X/A/Z/Y, menu do botão direito e tamanho da letra com Ctrl + / Ctrl −. Carrega em F1 para ver todos.
-- **Música**: o botão ♪ toca música em ciclo. Põe um ficheiro `C418 - Minecraft - Minecraft Volume Alpha.mp3` na pasta, ou escolhe outro ficheiro com o clique direito no ♪. A música não vem incluída por ter direitos de autor.
+- **Música**: o botão ♪ toca em ciclo a música incluída (`C418 - Minecraft - Minecraft Volume Alpha.mp3`, usada com autorização). Com o clique direito no ♪ podes escolher outro ficheiro.
 
 ## Executar
 
